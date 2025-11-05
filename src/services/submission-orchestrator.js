@@ -3,18 +3,61 @@ import { FormFiller } from './form-filler.js';
 import { BacklinkerDB } from '../database/db.js';
 import { config } from '../config/config.js';
 import { logSubmission, logError, logInfo } from '../utils/logger.js';
+import { captchaSolver } from './captcha-solver.js';
 import PQueue from 'p-queue';
+import { EventEmitter } from 'events';
 
 /**
  * Submission Orchestrator
- * Coordinates the entire submission process
+ * Coordinates the entire submission process with parallel processing
  */
-export class SubmissionOrchestrator {
+export class SubmissionOrchestrator extends EventEmitter {
   constructor() {
+    super();
     this.db = new BacklinkerDB();
-    this.queue = new PQueue({
-      concurrency: config.automation.maxConcurrentSubmissions,
-    });
+
+    // Determine concurrency based on bulk submission settings
+    const concurrency = config.bulkSubmission.enabled
+      ? config.bulkSubmission.parallelBrowsers
+      : config.automation.maxConcurrentSubmissions;
+
+    this.queue = new PQueue({ concurrency });
+    this.isPaused = false;
+    this.currentBatch = 0;
+    this.totalBatches = 0;
+  }
+
+  /**
+   * Pause submissions
+   */
+  pause() {
+    this.isPaused = true;
+    this.queue.pause();
+    this.emit('paused');
+    console.log('⏸️  Submissions paused');
+  }
+
+  /**
+   * Resume submissions
+   */
+  resume() {
+    this.isPaused = false;
+    this.queue.start();
+    this.emit('resumed');
+    console.log('▶️  Submissions resumed');
+  }
+
+  /**
+   * Get current status
+   */
+  getStatus() {
+    return {
+      isPaused: this.isPaused,
+      queueSize: this.queue.size,
+      pending: this.queue.pending,
+      currentBatch: this.currentBatch,
+      totalBatches: this.totalBatches,
+    };
   }
 
   /**
@@ -25,6 +68,13 @@ export class SubmissionOrchestrator {
     console.log(`📍 Processing: ${directory.name}`);
     console.log(`🔗 URL: ${directory.url}`);
     console.log(`${'='.repeat(60)}\n`);
+
+    // Emit start event
+    this.emit('directory:start', {
+      directoryId: directory.id,
+      name: directory.name,
+      url: directory.url,
+    });
 
     const browser = new BrowserService();
     let submissionId = null;
@@ -86,6 +136,13 @@ export class SubmissionOrchestrator {
             console.log(`📸 Screenshot saved: ${screenshotPath}`);
           }
 
+          // Emit manual event
+          this.emit('directory:manual', {
+            directoryId: directory.id,
+            name: directory.name,
+            reason: fillResult.reason,
+          });
+
           return {
             success: false,
             status: 'requires_manual',
@@ -127,6 +184,13 @@ export class SubmissionOrchestrator {
           this.db.updateDirectoryStatus(directory.id, 'success');
 
           logSubmission(directory, 'success', {
+            verification: submitResult.verification,
+          });
+
+          // Emit success event
+          this.emit('directory:success', {
+            directoryId: directory.id,
+            name: directory.name,
             verification: submitResult.verification,
           });
 
@@ -193,6 +257,13 @@ export class SubmissionOrchestrator {
     } catch (error) {
       console.error(`❌ Error: ${error.message}`);
       logError('submission', error, { directory: directory.name });
+
+      // Emit error event
+      this.emit('directory:error', {
+        directoryId: directory.id,
+        name: directory.name,
+        error: error.message,
+      });
 
       // Take screenshot on error
       if (config.automation.screenshotOnError) {
@@ -337,6 +408,150 @@ export class SubmissionOrchestrator {
       requiresManual: results.requiresManual.length,
       uncertain: results.uncertain.length,
     });
+  }
+
+  /**
+   * Submit to directories in parallel batches
+   * Optimized for bulk submissions
+   */
+  async submitInParallelBatches(directories, options = {}) {
+    const {
+      maxRetries = config.automation.retryAttempts,
+      batchSize = config.bulkSubmission.batchSize,
+      pauseBetweenBatches = config.bulkSubmission.pauseBetweenBatchesMs,
+    } = options;
+
+    console.log(`\n🚀 Starting PARALLEL submission to ${directories.length} directories`);
+    console.log(`⚙️  Settings:`);
+    console.log(`   - Parallel browsers: ${this.queue.concurrency}`);
+    console.log(`   - Batch size: ${batchSize}`);
+    console.log(`   - Pause between batches: ${pauseBetweenBatches / 1000}s\n`);
+
+    logInfo('Parallel batch submission started', {
+      totalDirectories: directories.length,
+      parallelBrowsers: this.queue.concurrency,
+      batchSize,
+      maxRetries,
+    });
+
+    // Check CAPTCHA solver balance if enabled
+    if (captchaSolver.isEnabled()) {
+      const balance = await captchaSolver.getBalance();
+      if (balance !== null) {
+        console.log(`💰 2captcha balance: $${balance.toFixed(2)}\n`);
+      }
+    }
+
+    const results = {
+      success: [],
+      failed: [],
+      requiresManual: [],
+      uncertain: [],
+    };
+
+    // Split directories into batches
+    const batches = [];
+    for (let i = 0; i < directories.length; i += batchSize) {
+      batches.push(directories.slice(i, i + batchSize));
+    }
+
+    this.totalBatches = batches.length;
+    this.emit('batches:total', this.totalBatches);
+
+    // Process each batch
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      if (this.isPaused) {
+        console.log('⏸️  Submissions paused, waiting to resume...');
+        await new Promise((resolve) => {
+          const checkPause = setInterval(() => {
+            if (!this.isPaused) {
+              clearInterval(checkPause);
+              resolve();
+            }
+          }, 1000);
+        });
+      }
+
+      this.currentBatch = batchIndex + 1;
+      const batch = batches[batchIndex];
+
+      console.log(`\n${'='.repeat(70)}`);
+      console.log(`📦 BATCH ${batchIndex + 1}/${batches.length} - Processing ${batch.length} directories in parallel`);
+      console.log(`${'='.repeat(70)}\n`);
+
+      this.emit('batch:start', {
+        batchIndex: batchIndex + 1,
+        totalBatches: batches.length,
+        batchSize: batch.length,
+      });
+
+      // Process all directories in the batch concurrently
+      const batchPromises = batch.map((directory) =>
+        this.queue.add(async () => {
+          let attempts = 0;
+          let lastResult = null;
+
+          while (attempts <= maxRetries) {
+            attempts++;
+
+            if (attempts > 1) {
+              console.log(`\n🔄 Retry attempt ${attempts - 1}/${maxRetries} for ${directory.name}`);
+            }
+
+            lastResult = await this.submitToDirectory(directory);
+
+            // If successful or requires manual, don't retry
+            if (lastResult.status === 'success' || lastResult.status === 'requires_manual') {
+              break;
+            }
+
+            // If failed and we have retries left, wait before retry
+            if (attempts <= maxRetries) {
+              const retryDelay = 3000 * attempts; // Exponential backoff
+              await new Promise((resolve) => setTimeout(resolve, retryDelay));
+            }
+          }
+
+          // Categorize result
+          if (lastResult.status === 'success') {
+            results.success.push(directory);
+          } else if (lastResult.status === 'requires_manual') {
+            results.requiresManual.push(directory);
+          } else if (lastResult.status === 'uncertain') {
+            results.uncertain.push(directory);
+          } else {
+            results.failed.push(directory);
+          }
+
+          return lastResult;
+        })
+      );
+
+      // Wait for all in batch to complete
+      await Promise.allSettled(batchPromises);
+
+      this.emit('batch:complete', {
+        batchIndex: batchIndex + 1,
+        results: {
+          success: results.success.length,
+          failed: results.failed.length,
+          requiresManual: results.requiresManual.length,
+          uncertain: results.uncertain.length,
+        },
+      });
+
+      // Pause between batches (except after last batch)
+      if (batchIndex < batches.length - 1 && pauseBetweenBatches > 0) {
+        console.log(`\n⏳ Pausing ${pauseBetweenBatches / 1000}s before next batch...\n`);
+        await new Promise((resolve) => setTimeout(resolve, pauseBetweenBatches));
+      }
+    }
+
+    // Print final summary
+    this.printSummary(results);
+    this.emit('submission:complete', results);
+
+    return results;
   }
 
   /**

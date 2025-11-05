@@ -237,6 +237,8 @@ export class BacklinkerDB {
     const failedStmt = this.db.prepare("SELECT COUNT(*) as count FROM directories WHERE status = 'failed'");
     const pendingStmt = this.db.prepare("SELECT COUNT(*) as count FROM directories WHERE status = 'pending'");
     const inProgressStmt = this.db.prepare("SELECT COUNT(*) as count FROM directories WHERE status = 'in_progress'");
+    const manualStmt = this.db.prepare("SELECT COUNT(*) as count FROM directories WHERE status = 'requires_manual'");
+    const uncertainStmt = this.db.prepare("SELECT COUNT(*) as count FROM directories WHERE status = 'uncertain'");
 
     return {
       total: totalStmt.get().count,
@@ -244,7 +246,111 @@ export class BacklinkerDB {
       failed: failedStmt.get().count,
       pending: pendingStmt.get().count,
       inProgress: inProgressStmt.get().count,
+      requiresManual: manualStmt.get().count,
+      uncertain: uncertainStmt.get().count,
     };
+  }
+
+  /**
+   * Get statistics by category
+   */
+  getStatsByCategory() {
+    const stmt = this.db.prepare(`
+      SELECT
+        category,
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
+        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+        SUM(CASE WHEN status = 'requires_manual' THEN 1 ELSE 0 END) as requires_manual,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+      FROM directories
+      GROUP BY category
+      ORDER BY total DESC
+    `);
+    return stmt.all();
+  }
+
+  /**
+   * Get recent submissions with directory info
+   */
+  getRecentSubmissions(limit = 20) {
+    const stmt = this.db.prepare(`
+      SELECT
+        s.*,
+        d.name as directory_name,
+        d.url as directory_url,
+        d.category as directory_category
+      FROM submissions s
+      JOIN directories d ON s.directory_id = d.id
+      ORDER BY s.updated_at DESC
+      LIMIT ?
+    `);
+    return stmt.all(limit);
+  }
+
+  /**
+   * Get directories with their latest submission
+   */
+  getDirectoriesWithLatestSubmission() {
+    const stmt = this.db.prepare(`
+      SELECT
+        d.*,
+        s.status as submission_status,
+        s.error_message,
+        s.screenshot_path,
+        s.updated_at as last_submission_at
+      FROM directories d
+      LEFT JOIN submissions s ON d.id = s.directory_id
+      AND s.id = (
+        SELECT id FROM submissions
+        WHERE directory_id = d.id
+        ORDER BY updated_at DESC
+        LIMIT 1
+      )
+      ORDER BY d.updated_at DESC
+    `);
+    return stmt.all();
+  }
+
+  /**
+   * Reset directories by status
+   */
+  resetDirectoriesByStatus(statuses) {
+    const placeholders = statuses.map(() => '?').join(',');
+    const stmt = this.db.prepare(`
+      UPDATE directories
+      SET status = 'pending', updated_at = CURRENT_TIMESTAMP
+      WHERE status IN (${placeholders})
+    `);
+    return stmt.run(...statuses);
+  }
+
+  /**
+   * Reset specific directory
+   */
+  resetDirectory(directoryId) {
+    const stmt = this.db.prepare(`
+      UPDATE directories
+      SET status = 'pending', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    return stmt.run(directoryId);
+  }
+
+  /**
+   * Get CAPTCHA solving statistics from analysis logs
+   */
+  getCaptchaStats() {
+    const stmt = this.db.prepare(`
+      SELECT
+        COUNT(*) as total_captchas,
+        SUM(CASE WHEN result LIKE '%solved successfully%' THEN 1 ELSE 0 END) as solved,
+        SUM(CASE WHEN result LIKE '%failed%' THEN 1 ELSE 0 END) as failed
+      FROM analysis_logs
+      WHERE analysis_type = 'form_analysis'
+      AND result LIKE '%captcha%'
+    `);
+    return stmt.get();
   }
 
   /**

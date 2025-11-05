@@ -162,7 +162,16 @@ program
 
       // Start orchestrator
       const orchestrator = new SubmissionOrchestrator();
-      const results = await orchestrator.submitToDirectories(directories);
+
+      // Use parallel batch processing if bulk submission is enabled
+      let results;
+      if (config.bulkSubmission.enabled && directories.length > 5) {
+        console.log(chalk.cyan(`Using parallel batch processing with ${config.bulkSubmission.parallelBrowsers} browsers\n`));
+        results = await orchestrator.submitInParallelBatches(directories);
+      } else {
+        results = await orchestrator.submitToDirectories(directories);
+      }
+
       orchestrator.close();
 
       // Exit with appropriate code
@@ -292,6 +301,41 @@ program
       }
 
       db.close();
+    } catch (error) {
+      console.error(chalk.red('❌ Error:'), error.message);
+      process.exit(1);
+    }
+  });
+
+/**
+ * Dashboard command - Start web dashboard
+ */
+program
+  .command('dashboard')
+  .description('Start web dashboard for visual monitoring and control')
+  .action(async () => {
+    console.log(chalk.blue.bold('\n🚀 Starting Dashboard Server\n'));
+
+    try {
+      validateConfig();
+
+      if (!config.dashboard.enabled) {
+        console.log(chalk.yellow('⚠️  Dashboard is disabled in configuration'));
+        console.log(chalk.cyan('Enable it by setting DASHBOARD_ENABLED=true in your .env file'));
+        process.exit(1);
+      }
+
+      // Import and start dashboard server
+      const { DashboardServer } = await import('./server/dashboard-server.js');
+      const server = new DashboardServer();
+      server.start();
+
+      // Handle graceful shutdown
+      process.on('SIGINT', () => {
+        console.log('\n\n🛑 Shutting down dashboard server...');
+        server.stop();
+        process.exit(0);
+      });
     } catch (error) {
       console.error(chalk.red('❌ Error:'), error.message);
       process.exit(1);

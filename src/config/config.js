@@ -48,6 +48,30 @@ export const config = {
     delayBetweenSubmissionsMs: parseInt(process.env.DELAY_BETWEEN_SUBMISSIONS_MS || '5000'),
     delayBetweenPagesMs: parseInt(process.env.DELAY_BETWEEN_PAGES_MS || '2000'),
   },
+
+  // CAPTCHA Solving
+  captcha: {
+    enabled: process.env.CAPTCHA_ENABLED === 'true',
+    apiKey: process.env.CAPTCHA_API_KEY,
+    solver: process.env.CAPTCHA_SOLVER || '2captcha',
+  },
+
+  // Bulk Parallel Submission
+  bulkSubmission: {
+    enabled: process.env.BULK_SUBMISSION_ENABLED === 'true',
+    parallelBrowsers: parseInt(process.env.PARALLEL_BROWSERS || '5'),
+    batchSize: parseInt(process.env.BATCH_SIZE || '20'),
+    pauseBetweenBatchesMs: parseInt(process.env.PAUSE_BETWEEN_BATCHES_MS || '60000'),
+  },
+
+  // Web Dashboard
+  dashboard: {
+    enabled: process.env.DASHBOARD_ENABLED === 'true',
+    port: parseInt(process.env.DASHBOARD_PORT || '3001'),
+    host: process.env.DASHBOARD_HOST || 'localhost',
+    username: process.env.DASHBOARD_USERNAME || 'admin',
+    password: process.env.DASHBOARD_PASSWORD || 'changeme123',
+  },
 };
 
 /**
