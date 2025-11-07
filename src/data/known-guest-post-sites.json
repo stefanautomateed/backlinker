@@ -1,0 +1,290 @@
+[
+  {
+    "name": "TechCrunch",
+    "url": "https://techcrunch.com/guest-author-program/",
+    "category": "Tech",
+    "niche": "technology, startups, AI"
+  },
+  {
+    "name": "Smashing Magazine",
+    "url": "https://www.smashingmagazine.com/write-for-us/",
+    "category": "Design & Development",
+    "niche": "web design, development"
+  },
+  {
+    "name": "A List Apart",
+    "url": "https://alistapart.com/about/contribute/",
+    "category": "Web Design",
+    "niche": "web design, content strategy"
+  },
+  {
+    "name": "SitePoint",
+    "url": "https://www.sitepoint.com/write-for-us/",
+    "category": "Web Development",
+    "niche": "web development, programming"
+  },
+  {
+    "name": "CSS-Tricks",
+    "url": "https://css-tricks.com/guest-posting/",
+    "category": "Web Development",
+    "niche": "CSS, frontend development"
+  },
+  {
+    "name": "Towards Data Science",
+    "url": "https://towardsdatascience.com/questions-96667b06af5",
+    "category": "Data Science & AI",
+    "niche": "AI, machine learning, data science"
+  },
+  {
+    "name": "Analytics Vidhya",
+    "url": "https://www.analyticsvidhya.com/blog/2021/06/write-for-us/",
+    "category": "Data Science & AI",
+    "niche": "AI, machine learning, analytics"
+  },
+  {
+    "name": "KDnuggets",
+    "url": "https://www.kdnuggets.com/news/submissions.html",
+    "category": "Data Science & AI",
+    "niche": "AI, machine learning, data mining"
+  },
+  {
+    "name": "AI Time Journal",
+    "url": "https://www.aitimejournal.com/write-for-us",
+    "category": "AI",
+    "niche": "artificial intelligence"
+  },
+  {
+    "name": "Hacker Noon",
+    "url": "https://hackernoon.com/signup",
+    "category": "Tech",
+    "niche": "technology, programming, startups"
+  },
+  {
+    "name": "Dev.to",
+    "url": "https://dev.to/",
+    "category": "Development",
+    "niche": "programming, web development"
+  },
+  {
+    "name": "FreeCodeCamp",
+    "url": "https://www.freecodecamp.org/news/developer-news-style-guide/",
+    "category": "Programming",
+    "niche": "programming, web development"
+  },
+  {
+    "name": "DZone",
+    "url": "https://dzone.com/pages/contribute",
+    "category": "Development",
+    "niche": "software development, DevOps"
+  },
+  {
+    "name": "Opensource.com",
+    "url": "https://opensource.com/how-submit-article",
+    "category": "Open Source",
+    "niche": "open source, Linux"
+  },
+  {
+    "name": "The Next Web",
+    "url": "https://thenextweb.com/news/contribute",
+    "category": "Tech News",
+    "niche": "technology, startups"
+  },
+  {
+    "name": "Make Use Of",
+    "url": "https://www.makeuseof.com/contributor/",
+    "category": "Tech",
+    "niche": "technology, tutorials"
+  },
+  {
+    "name": "Digital Ocean Community",
+    "url": "https://www.digitalocean.com/community/pages/write-for-digitalocean",
+    "category": "Cloud & DevOps",
+    "niche": "cloud computing, DevOps"
+  },
+  {
+    "name": "Codementor",
+    "url": "https://www.codementor.io/community/write",
+    "category": "Programming",
+    "niche": "programming, tutorials"
+  },
+  {
+    "name": "Tutorialspoint",
+    "url": "https://www.tutorialspoint.com/about/tutorials_writing.htm",
+    "category": "Tutorials",
+    "niche": "programming, technology"
+  },
+  {
+    "name": "Envato Tuts+",
+    "url": "https://tutsplus.com/teach",
+    "category": "Design & Development",
+    "niche": "web design, development, creative"
+  },
+  {
+    "name": "Hongkiat",
+    "url": "https://www.hongkiat.com/blog/write-for-us/",
+    "category": "Design & Tech",
+    "niche": "web design, technology"
+  },
+  {
+    "name": "Scotch.io",
+    "url": "https://scotch.io/write-for-us",
+    "category": "Web Development",
+    "niche": "web development, JavaScript"
+  },
+  {
+    "name": "LogRocket Blog",
+    "url": "https://blog.logrocket.com/become-a-logrocket-guest-author/",
+    "category": "Web Development",
+    "niche": "frontend development, JavaScript"
+  },
+  {
+    "name": "Better Programming",
+    "url": "https://betterprogramming.pub/write-for-us-5c4bcba59397",
+    "category": "Programming",
+    "niche": "software development, programming"
+  },
+  {
+    "name": "Real Python",
+    "url": "https://realpython.com/write-with-us/",
+    "category": "Python",
+    "niche": "Python programming"
+  },
+  {
+    "name": "The Startup",
+    "url": "https://medium.com/swlh/write-for-the-startup-1bbe408a6ac0",
+    "category": "Startups",
+    "niche": "startups, entrepreneurship"
+  },
+  {
+    "name": "Business 2 Community",
+    "url": "https://www.business2community.com/write-for-us",
+    "category": "Business & Marketing",
+    "niche": "business, marketing, technology"
+  },
+  {
+    "name": "Inc.com",
+    "url": "https://www.inc.com/contributing-editors",
+    "category": "Business",
+    "niche": "business, entrepreneurship, leadership"
+  },
+  {
+    "name": "Entrepreneur",
+    "url": "https://www.entrepreneur.com/write-for-us",
+    "category": "Business",
+    "niche": "entrepreneurship, business"
+  },
+  {
+    "name": "Content Marketing Institute",
+    "url": "https://contentmarketinginstitute.com/write-for-us/",
+    "category": "Content Marketing",
+    "niche": "content marketing, writing"
+  },
+  {
+    "name": "Copyblogger",
+    "url": "https://copyblogger.com/guest-blogging/",
+    "category": "Content Marketing",
+    "niche": "copywriting, content marketing"
+  },
+  {
+    "name": "ProBlogger",
+    "url": "https://problogger.com/write-for-problogger/",
+    "category": "Blogging",
+    "niche": "blogging, content creation"
+  },
+  {
+    "name": "Moz Blog",
+    "url": "https://moz.com/blog/youmoz",
+    "category": "SEO",
+    "niche": "SEO, digital marketing"
+  },
+  {
+    "name": "Search Engine Journal",
+    "url": "https://www.searchenginejournal.com/write-for-us/",
+    "category": "SEO",
+    "niche": "SEO, search marketing"
+  },
+  {
+    "name": "Social Media Examiner",
+    "url": "https://www.socialmediaexaminer.com/write-for-social-media-examiner/",
+    "category": "Social Media",
+    "niche": "social media marketing"
+  },
+  {
+    "name": "Neil Patel Blog",
+    "url": "https://neilpatel.com/guest-blogging/",
+    "category": "Marketing",
+    "niche": "digital marketing, SEO"
+  },
+  {
+    "name": "MarketingProfs",
+    "url": "https://www.marketingprofs.com/write-for-marketingprofs",
+    "category": "Marketing",
+    "niche": "marketing, content"
+  },
+  {
+    "name": "GrowthHackers",
+    "url": "https://growthhackers.com/write-for-us",
+    "category": "Growth Marketing",
+    "niche": "growth hacking, marketing"
+  },
+  {
+    "name": "Indie Hackers",
+    "url": "https://www.indiehackers.com/start",
+    "category": "Indie Startups",
+    "niche": "startups, entrepreneurship, indie business"
+  },
+  {
+    "name": "Product Hunt Blog",
+    "url": "https://blog.producthunt.com/",
+    "category": "Product",
+    "niche": "product launches, startups"
+  },
+  {
+    "name": "The Write Life",
+    "url": "https://thewritelife.com/write-for-us/",
+    "category": "Writing",
+    "niche": "writing, freelancing, publishing"
+  },
+  {
+    "name": "Writer's Digest",
+    "url": "https://www.writersdigest.com/submit-your-writing-for-publication",
+    "category": "Writing",
+    "niche": "writing, publishing"
+  },
+  {
+    "name": "The Creative Penn",
+    "url": "https://www.thecreativepenn.com/guest-post-guidelines/",
+    "category": "Writing & Publishing",
+    "niche": "book publishing, writing"
+  },
+  {
+    "name": "Jane Friedman",
+    "url": "https://www.janefriedman.com/guest-post/",
+    "category": "Publishing",
+    "niche": "book publishing, writing"
+  },
+  {
+    "name": "Reedsy Blog",
+    "url": "https://blog.reedsy.com/write-for-the-reedsy-blog/",
+    "category": "Publishing",
+    "niche": "book publishing, self-publishing"
+  },
+  {
+    "name": "Alliance of Independent Authors",
+    "url": "https://www.allianceindependentauthors.org/write-for-alli/",
+    "category": "Self-Publishing",
+    "niche": "self-publishing, indie authors"
+  },
+  {
+    "name": "BookBaby Blog",
+    "url": "https://www.bookbaby.com/blog",
+    "category": "Self-Publishing",
+    "niche": "self-publishing, book creation"
+  },
+  {
+    "name": "Draft2Digital",
+    "url": "https://draft2digital.com/blog/",
+    "category": "Self-Publishing",
+    "niche": "ebook publishing"
+  }
+]

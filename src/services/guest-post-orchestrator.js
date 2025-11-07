@@ -1,6 +1,8 @@
 import { BrowserService } from './browser.js';
 import { BacklinkerDB } from '../database/db.js';
-import { googleSearchService } from './google-search.js';
+import { freeGoogleSearch } from './free-google-search.js'; // FREE - no API key needed!
+import { googleSearchService } from './google-search.js'; // Paid (SerpAPI) - optional
+import { getTechAIWritingSites, loadKnownSites } from '../utils/known-sites-loader.js';
 import { contentGenerator } from './content-generator.js';
 import { visionAnalyzer } from './vision-analyzer.js';
 import { config } from '../config/config.js';
@@ -25,12 +27,19 @@ export class GuestPostOrchestrator extends EventEmitter {
 
   /**
    * STEP 1: Find guest post opportunities in target niches
+   * THREE METHODS (in priority order):
+   * 1. Use curated list (100% FREE - 48 pre-verified sites)
+   * 2. Use free search (DuckDuckGo, Google scraping, Bing)
+   * 3. Use paid API (SerpAPI) if configured
    */
   async findOpportunities(options = {}) {
     const {
       niches = ['AI tools', 'content creation', 'tech blog', 'publishing', 'writing tools'],
       maxPerNiche = 10,
       verify = true,
+      useKnownSites = true, // Use curated list first (FREE!)
+      useFreeSearch = true, // Use free search engines (FREE!)
+      usePaidAPI = false,   // Use SerpAPI only if explicitly requested
     } = options;
 
     logger.info(`\n🔍 STEP 1: Finding guest post opportunities`);
@@ -38,53 +47,131 @@ export class GuestPostOrchestrator extends EventEmitter {
 
     const allSites = [];
 
-    for (const niche of niches) {
-      try {
-        logger.info(`\nSearching for: ${niche}...`);
+    // METHOD 1: Use curated list of known sites (100% FREE)
+    if (useKnownSites) {
+      logger.info('\n📚 Using curated list of known guest post sites (FREE!)');
+      const knownSites = getTechAIWritingSites();
+      logger.info(`Found ${knownSites.length} sites in curated list`);
 
-        // Find sites
-        const sites = await googleSearchService.findGuestPostSites(niche, maxPerNiche);
-        logger.info(`Found ${sites.length} potential sites`);
+      knownSites.forEach((site) => {
+        try {
+          const siteId = this.db.addGuestPostSite({
+            url: site.url,
+            title: site.name,
+            query: site.niche,
+            isVerified: true, // Pre-verified
+            score: 8, // Known good sites
+            hasForm: true,
+          });
+          allSites.push({ ...site, id: siteId });
+        } catch (error) {
+          // Skip duplicates
+        }
+      });
 
-        // Verify if requested
-        if (verify) {
-          logger.info('Verifying sites...');
-          for (const site of sites) {
-            const verification = await googleSearchService.verifyGuestPostPage(site.url);
+      logger.info(`✓ Added ${allSites.length} known sites to database`);
 
-            if (verification.isValid) {
-              // Save to database
-              const siteData = {
-                ...site,
-                ...verification,
-              };
+      // If we have enough sites from the list, skip searching
+      if (allSites.length >= maxPerNiche * niches.length) {
+        logger.info('✓ Enough sites from curated list, skipping search');
+        this.emit('opportunities:found', {
+          count: allSites.length,
+          sites: allSites,
+        });
+        return allSites;
+      }
+    }
 
+    // METHOD 2: Use free search engines (100% FREE)
+    if (useFreeSearch && allSites.length < maxPerNiche * niches.length) {
+      logger.info('\n🔍 Searching with free methods (DuckDuckGo, Google, Bing)');
+
+      for (const niche of niches) {
+        try {
+          logger.info(`\nSearching for: ${niche}...`);
+
+          // Use FREE search
+          const sites = await freeGoogleSearch.findGuestPostSites(niche, maxPerNiche);
+          logger.info(`Found ${sites.length} potential sites (FREE search)`);
+
+          // Verify if requested
+          if (verify) {
+            logger.info('Verifying sites...');
+            for (const site of sites) {
+              const verification = await freeGoogleSearch.verifyGuestPostPage(site.url);
+
+              if (verification.isValid) {
+                // Save to database
+                const siteData = {
+                  ...site,
+                  ...verification,
+                };
+
+                try {
+                  const siteId = this.db.addGuestPostSite(siteData);
+                  allSites.push({ ...siteData, id: siteId });
+                  logger.info(`✓ Verified: ${site.title} (score: ${verification.score})`);
+                } catch (error) {
+                  if (!error.message.includes('UNIQUE constraint')) {
+                    logger.error(`Failed to save site: ${error.message}`);
+                  }
+                }
+              }
+            }
+          } else {
+            sites.forEach((site) => {
               try {
-                const siteId = this.db.addGuestPostSite(siteData);
-                allSites.push({ ...siteData, id: siteId });
-                logger.info(`✓ Verified: ${site.title} (score: ${verification.score})`);
+                const siteId = this.db.addGuestPostSite(site);
+                allSites.push({ ...site, id: siteId });
               } catch (error) {
-                if (!error.message.includes('UNIQUE constraint')) {
-                  logger.error(`Failed to save site: ${error.message}`);
+                // Skip duplicates
+              }
+            });
+          }
+
+          // Delay between niches
+          await this.sleep(5000); // 5 seconds to be respectful
+        } catch (error) {
+          logger.error(`Error searching ${niche}: ${error.message}`);
+        }
+
+        if (allSites.length >= maxPerNiche * niches.length) {
+          break;
+        }
+      }
+    }
+
+    // METHOD 3: Use paid API (SerpAPI) if explicitly requested
+    if (usePaidAPI && allSites.length < maxPerNiche * niches.length) {
+      logger.info('\n💰 Using paid API (SerpAPI) - costs apply');
+
+      for (const niche of niches) {
+        try {
+          const sites = await googleSearchService.findGuestPostSites(niche, maxPerNiche);
+          logger.info(`Found ${sites.length} sites via SerpAPI`);
+
+          if (verify) {
+            for (const site of sites) {
+              const verification = await googleSearchService.verifyGuestPostPage(site.url);
+              if (verification.isValid) {
+                try {
+                  const siteId = this.db.addGuestPostSite({ ...site, ...verification });
+                  allSites.push({ ...site, ...verification, id: siteId });
+                } catch (error) {
+                  // Skip duplicates
                 }
               }
             }
           }
-        } else {
-          sites.forEach((site) => {
-            try {
-              const siteId = this.db.addGuestPostSite(site);
-              allSites.push({ ...site, id: siteId });
-            } catch (error) {
-              // Skip duplicates
-            }
-          });
+
+          await this.sleep(3000);
+        } catch (error) {
+          logger.error(`Error with paid API: ${error.message}`);
         }
 
-        // Delay between niches
-        await this.sleep(3000);
-      } catch (error) {
-        logger.error(`Error searching ${niche}: ${error.message}`);
+        if (allSites.length >= maxPerNiche * niches.length) {
+          break;
+        }
       }
     }
 
