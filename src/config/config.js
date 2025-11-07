@@ -72,6 +72,17 @@ export const config = {
     username: process.env.DASHBOARD_USERNAME || 'admin',
     password: process.env.DASHBOARD_PASSWORD || 'changeme123',
   },
+
+  // Guest Post Automation
+  guestPost: {
+    enabled: process.env.GUEST_POST_ENABLED === 'true',
+    searchEngine: process.env.GUEST_POST_SEARCH_ENGINE || 'serpapi',
+    searchApiKey: process.env.GUEST_POST_SEARCH_API_KEY,
+    googleSearchEngineId: process.env.GUEST_POST_GOOGLE_SEARCH_ENGINE_ID,
+    contentModel: process.env.GUEST_POST_CONTENT_MODEL || 'gpt-4-turbo-preview',
+    defaultNiche: process.env.GUEST_POST_NICHE || 'AI tools, SaaS, content creation',
+    defaultWordCount: parseInt(process.env.GUEST_POST_WORD_COUNT || '1500'),
+  },
 };
 
 /**
