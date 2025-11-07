@@ -1,5 +1,6 @@
 import { config } from '../config/config.js';
 import { AIAnalyzer } from './ai-analyzer.js';
+import { captchaSolver } from './captcha-solver.js';
 
 /**
  * Form Filler Service
@@ -59,15 +60,50 @@ export class FormFiller {
       console.log('  📋 Analyzing form fields...');
       const formAnalysis = await this.ai.analyzeForm(html, url);
 
-      // Check for CAPTCHA
+      // Check for CAPTCHA and try to solve it
       if (formAnalysis.captchaDetected) {
         console.log(`  ⚠️  CAPTCHA detected: ${formAnalysis.captchaType}`);
-        return {
-          success: false,
-          reason: `CAPTCHA detected: ${formAnalysis.captchaType}`,
-          analysis: formAnalysis,
-          requiresManual: true,
-        };
+
+        // Try to solve CAPTCHA if enabled
+        if (captchaSolver.isEnabled()) {
+          console.log('  🔓 Attempting to solve CAPTCHA...');
+          try {
+            const captchaInfo = await captchaSolver.detectCaptcha(this.browser.page, url);
+
+            if (captchaInfo) {
+              const token = await captchaSolver.solveCaptcha(captchaInfo);
+              await captchaSolver.injectCaptchaToken(this.browser.page, captchaInfo, token);
+              console.log('  ✓ CAPTCHA solved successfully');
+
+              // Small delay after injecting CAPTCHA token
+              await this.browser.page.waitForTimeout(1000);
+            } else {
+              console.log('  ⚠️  Could not detect CAPTCHA details');
+              return {
+                success: false,
+                reason: `CAPTCHA detected but could not be identified: ${formAnalysis.captchaType}`,
+                analysis: formAnalysis,
+                requiresManual: true,
+              };
+            }
+          } catch (error) {
+            console.log(`  ❌ Failed to solve CAPTCHA: ${error.message}`);
+            return {
+              success: false,
+              reason: `CAPTCHA solving failed: ${error.message}`,
+              analysis: formAnalysis,
+              requiresManual: true,
+            };
+          }
+        } else {
+          console.log('  ⚠️  CAPTCHA solving is disabled');
+          return {
+            success: false,
+            reason: `CAPTCHA detected: ${formAnalysis.captchaType} (solving disabled)`,
+            analysis: formAnalysis,
+            requiresManual: true,
+          };
+        }
       }
 
       // Fill the form
