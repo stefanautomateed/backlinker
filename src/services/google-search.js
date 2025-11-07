@@ -47,24 +47,68 @@ class GoogleSearchService {
 
   /**
    * Generate search queries for finding guest post opportunities
+   * Focused on tech, AI, writing, publishing, and books niches
    */
   generateSearchQueries(niche) {
-    const queries = [
+    // Base guest post queries
+    const baseQueries = [
       `${niche} "write for us"`,
       `${niche} "submit a guest post"`,
       `${niche} "contribute to our blog"`,
       `${niche} "guest post guidelines"`,
       `${niche} "become a contributor"`,
       `${niche} "submit an article"`,
-      `${niche} "guest posting"`,
-      `${niche} "guest author"`,
       `${niche} inurl:"write-for-us"`,
       `${niche} inurl:"guest-post"`,
       `${niche} "accepting guest posts"`,
-      `${niche} "contribute an article"`,
     ];
 
-    return queries;
+    // Tech/AI/Writing specific variations
+    const targetedQueries = [
+      // AI & Tech
+      `"artificial intelligence" "write for us"`,
+      `"AI tools" "guest post"`,
+      `"machine learning" "contribute"`,
+      `"tech blog" "write for us"`,
+      `"SaaS blog" "guest post"`,
+      `"technology" "submit article"`,
+
+      // Writing & Content
+      `"content creation" "write for us"`,
+      `"writing tools" "guest post"`,
+      `"content marketing" "contribute"`,
+      `"copywriting" "write for us"`,
+      `"blogging" "guest author"`,
+
+      // Publishing & Books
+      `"publishing" "write for us"`,
+      `"ebook" "guest post"`,
+      `"book publishing" "contribute"`,
+      `"self-publishing" "write for us"`,
+      `"authors" "submit article"`,
+
+      // Productivity & Automation
+      `"productivity tools" "write for us"`,
+      `"automation" "guest post"`,
+      `"workflow" "contribute"`,
+    ];
+
+    // Combine and return based on niche
+    const nicheLower = niche.toLowerCase();
+
+    // If niche already includes our target keywords, use base queries
+    if (
+      nicheLower.includes('ai') ||
+      nicheLower.includes('tech') ||
+      nicheLower.includes('writing') ||
+      nicheLower.includes('publishing') ||
+      nicheLower.includes('book')
+    ) {
+      return baseQueries;
+    }
+
+    // Otherwise, use targeted queries
+    return targetedQueries;
   }
 
   /**
