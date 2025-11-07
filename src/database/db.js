@@ -67,11 +67,70 @@ export class BacklinkerDB {
       )
     `);
 
+    // Create guest_post_sites table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS guest_post_sites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        url TEXT NOT NULL UNIQUE,
+        title TEXT,
+        snippet TEXT,
+        search_query TEXT,
+        is_verified BOOLEAN DEFAULT 0,
+        verification_score INTEGER DEFAULT 0,
+        has_form BOOLEAN DEFAULT 0,
+        contact_emails TEXT,
+        site_guidelines TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create generated_articles table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS generated_articles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        alternate_titles TEXT,
+        content TEXT NOT NULL,
+        meta_description TEXT,
+        author_bio TEXT,
+        tags TEXT,
+        word_count INTEGER,
+        topic TEXT,
+        generated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create guest_post_submissions table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS guest_post_submissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guest_post_site_id INTEGER NOT NULL,
+        article_id INTEGER NOT NULL,
+        status TEXT DEFAULT 'pending',
+        submission_method TEXT,
+        attempt_count INTEGER DEFAULT 0,
+        last_attempt_at DATETIME,
+        success_at DATETIME,
+        error_message TEXT,
+        screenshot_path TEXT,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (guest_post_site_id) REFERENCES guest_post_sites(id),
+        FOREIGN KEY (article_id) REFERENCES generated_articles(id)
+      )
+    `);
+
     // Create indexes
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_directories_status ON directories(status);
       CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
       CREATE INDEX IF NOT EXISTS idx_submissions_directory_id ON submissions(directory_id);
+      CREATE INDEX IF NOT EXISTS idx_guest_post_sites_status ON guest_post_sites(status);
+      CREATE INDEX IF NOT EXISTS idx_guest_post_submissions_status ON guest_post_submissions(status);
+      CREATE INDEX IF NOT EXISTS idx_guest_post_submissions_site ON guest_post_submissions(guest_post_site_id);
     `);
   }
 
@@ -351,6 +410,250 @@ export class BacklinkerDB {
       AND result LIKE '%captcha%'
     `);
     return stmt.get();
+  }
+
+  // ============================================================================
+  // GUEST POST METHODS
+  // ============================================================================
+
+  /**
+   * Add a guest post site
+   */
+  addGuestPostSite(siteData) {
+    const stmt = this.db.prepare(`
+      INSERT INTO guest_post_sites (url, title, snippet, search_query, is_verified, verification_score, has_form, contact_emails)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(
+      siteData.url,
+      siteData.title || null,
+      siteData.snippet || null,
+      siteData.query || null,
+      siteData.isVerified ? 1 : 0,
+      siteData.score || 0,
+      siteData.hasForm ? 1 : 0,
+      siteData.contactEmails ? JSON.stringify(siteData.contactEmails) : null
+    );
+    return result.lastInsertRowid;
+  }
+
+  /**
+   * Get all guest post sites
+   */
+  getGuestPostSites(status = null) {
+    let query = 'SELECT * FROM guest_post_sites';
+    if (status) {
+      query += ` WHERE status = ?`;
+      const stmt = this.db.prepare(query);
+      return stmt.all(status);
+    }
+    const stmt = this.db.prepare(query);
+    return stmt.all();
+  }
+
+  /**
+   * Update guest post site
+   */
+  updateGuestPostSite(id, data) {
+    const fields = [];
+    const values = [];
+
+    if (data.status !== undefined) {
+      fields.push('status = ?');
+      values.push(data.status);
+    }
+    if (data.is_verified !== undefined) {
+      fields.push('is_verified = ?');
+      values.push(data.is_verified ? 1 : 0);
+    }
+    if (data.verification_score !== undefined) {
+      fields.push('verification_score = ?');
+      values.push(data.verification_score);
+    }
+    if (data.has_form !== undefined) {
+      fields.push('has_form = ?');
+      values.push(data.has_form ? 1 : 0);
+    }
+    if (data.site_guidelines !== undefined) {
+      fields.push('site_guidelines = ?');
+      values.push(data.site_guidelines);
+    }
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    const stmt = this.db.prepare(`
+      UPDATE guest_post_sites
+      SET ${fields.join(', ')}
+      WHERE id = ?
+    `);
+    return stmt.run(...values);
+  }
+
+  /**
+   * Save a generated article
+   */
+  saveGeneratedArticle(article) {
+    const stmt = this.db.prepare(`
+      INSERT INTO generated_articles (title, alternate_titles, content, meta_description, author_bio, tags, word_count, topic)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(
+      article.title,
+      JSON.stringify(article.alternateTitles || []),
+      article.content,
+      article.metaDescription || null,
+      article.authorBio || null,
+      JSON.stringify(article.tags || []),
+      article.wordCount || 0,
+      article.topic || null
+    );
+    return result.lastInsertRowid;
+  }
+
+  /**
+   * Get article by ID
+   */
+  getArticle(id) {
+    const stmt = this.db.prepare('SELECT * FROM generated_articles WHERE id = ?');
+    const article = stmt.get(id);
+    if (article) {
+      article.alternateTitles = JSON.parse(article.alternate_titles || '[]');
+      article.tags = JSON.parse(article.tags || '[]');
+    }
+    return article;
+  }
+
+  /**
+   * Get all generated articles
+   */
+  getAllArticles() {
+    const stmt = this.db.prepare('SELECT * FROM generated_articles ORDER BY generated_at DESC');
+    const articles = stmt.all();
+    return articles.map((article) => ({
+      ...article,
+      alternateTitles: JSON.parse(article.alternate_titles || '[]'),
+      tags: JSON.parse(article.tags || '[]'),
+    }));
+  }
+
+  /**
+   * Create a guest post submission
+   */
+  createGuestPostSubmission(siteId, articleId) {
+    const stmt = this.db.prepare(`
+      INSERT INTO guest_post_submissions (guest_post_site_id, article_id, status, attempt_count, last_attempt_at)
+      VALUES (?, ?, 'in_progress', 1, CURRENT_TIMESTAMP)
+    `);
+    const result = stmt.run(siteId, articleId);
+    return result.lastInsertRowid;
+  }
+
+  /**
+   * Update guest post submission
+   */
+  updateGuestPostSubmission(submissionId, data) {
+    const fields = [];
+    const values = [];
+
+    if (data.status) {
+      fields.push('status = ?');
+      values.push(data.status);
+    }
+    if (data.submission_method) {
+      fields.push('submission_method = ?');
+      values.push(data.submission_method);
+    }
+    if (data.error_message !== undefined) {
+      fields.push('error_message = ?');
+      values.push(data.error_message);
+    }
+    if (data.screenshot_path) {
+      fields.push('screenshot_path = ?');
+      values.push(data.screenshot_path);
+    }
+    if (data.notes) {
+      fields.push('notes = ?');
+      values.push(data.notes);
+    }
+    if (data.incrementAttempt) {
+      fields.push('attempt_count = attempt_count + 1');
+      fields.push('last_attempt_at = CURRENT_TIMESTAMP');
+    }
+    if (data.status === 'success') {
+      fields.push('success_at = CURRENT_TIMESTAMP');
+    }
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(submissionId);
+
+    const stmt = this.db.prepare(`
+      UPDATE guest_post_submissions
+      SET ${fields.join(', ')}
+      WHERE id = ?
+    `);
+    return stmt.run(...values);
+  }
+
+  /**
+   * Get guest post submissions with site and article info
+   */
+  getGuestPostSubmissions(status = null) {
+    let query = `
+      SELECT
+        gps.*,
+        s.url as site_url,
+        s.title as site_title,
+        a.title as article_title,
+        a.word_count
+      FROM guest_post_submissions gps
+      JOIN guest_post_sites s ON gps.guest_post_site_id = s.id
+      JOIN generated_articles a ON gps.article_id = a.id
+    `;
+
+    if (status) {
+      query += ` WHERE gps.status = ?`;
+      const stmt = this.db.prepare(query + ' ORDER BY gps.updated_at DESC');
+      return stmt.all(status);
+    }
+
+    const stmt = this.db.prepare(query + ' ORDER BY gps.updated_at DESC');
+    return stmt.all();
+  }
+
+  /**
+   * Get guest post statistics
+   */
+  getGuestPostStats() {
+    const sitesStmt = this.db.prepare('SELECT COUNT(*) as count FROM guest_post_sites');
+    const articlesStmt = this.db.prepare('SELECT COUNT(*) as count FROM generated_articles');
+    const submissionsStmt = this.db.prepare(`
+      SELECT
+        status,
+        COUNT(*) as count
+      FROM guest_post_submissions
+      GROUP BY status
+    `);
+
+    const submissions = submissionsStmt.all();
+    const submissionStats = {
+      total: 0,
+      success: 0,
+      failed: 0,
+      pending: 0,
+      in_progress: 0,
+    };
+
+    submissions.forEach((row) => {
+      submissionStats.total += row.count;
+      submissionStats[row.status] = row.count;
+    });
+
+    return {
+      totalSites: sitesStmt.get().count,
+      totalArticles: articlesStmt.get().count,
+      submissions: submissionStats,
+    };
   }
 
   /**
